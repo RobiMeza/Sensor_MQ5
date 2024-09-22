@@ -1,0 +1,28 @@
+void setup() {
+  Serial.begin(9600);
+}
+void loop() {
+  float sensor_volt = 0;
+  float RS_air = 0;  // Resistencia del sensor en aire limpio
+  float R0 = 0;      // Valor de referencia de R0
+  float sensorValue = 0;
+  /*--- Obtener un promedio de los datos tomando 100 lecturas ---*/
+  for (int x = 0; x < 100; x++) {
+    sensorValue += analogRead(A0);
+  }
+  sensorValue = sensorValue / 100.0;
+  /*--- Calcular el voltaje del sensor ---*/
+  sensor_volt = (sensorValue / 1024.0) * 5.0;
+  /*--- Calcular la resistencia RS del sensor en aire limpio ---*/
+  RS_air = (5.0 - sensor_volt) / sensor_volt;  // Considera el divisor de voltaje (omit *RL)
+  /*--- Calcular el valor de R0 (relación de RS/R0 = 10 en aire limpio) ---*/
+  R0 = RS_air / 10.0;
+  /*--- Mostrar los resultados ---*/
+  Serial.print("sensor_volt = ");
+  Serial.print(sensor_volt);
+  Serial.println("V");
+  Serial.print("R0 = ");
+  Serial.println(RS_air);
+
+  delay(500);
+}

@@ -1,0 +1,119 @@
+#include <LiquidCrystal_I2C.h>
+
+//lcd  dirección  0x3F y 16 columnas x 2 filas
+LiquidCrystal_I2C lcd(0x3F, 16, 2);  //
+
+int cont = 0;
+int MAXT = 100;
+
+//PARAMETROS PARA EL MQ=5
+const int MQ_PIN = A7;    // Pin de lectura del sensor
+const int RL_VALUE = 20;  // Resistencia RL del modulo en Kilo ohms (5 es originalmente)
+const int R0 = 21;        /* Resistencia de referencia R0 del sensor en Kilo ohms (aire libre) (originalmente es 10)
+                          el valor de R0 se obtuvo del programa configuración_1*/
+
+// Datos para lectura multiple
+const int READ_SAMPLE_INTERVAL = 100;  // Tiempo entre muestras
+const int READ_SAMPLE_TIMES = 5;       // Numero muestras
+
+// Valores obtenidos de la curva de gases del MQ-5
+const float X0 = 200;  //198.58
+const float Y0 = 0.70778;
+const float X1 = 10000;
+const float Y1 = 0.14867;
+
+// Puntos de la curva de concentración {X, Y} ppm
+const float punto0[] = { log10(X0), log10(Y0) };
+const float punto1[] = { log10(X1), log10(Y1) };
+
+// Calcular pendiente y coordenada abscisas
+const float scope = (punto1[1] - punto0[1]) / (punto1[0] - punto0[0]);
+const float coord = punto0[1] - punto0[0] * scope;
+
+void setup() {
+  Serial.begin(9600);
+  lcd.init();
+  lcd.backlight();
+  espera();  //Funcion de espera para calibrar
+}
+
+void loop() {
+  float rs_med = readMQ(MQ_PIN);                        // Obtener la Rs promedio
+  float concentration = getConcentration(rs_med / R0);  // Obtener la concentración
+
+  // Mostrar el valor de la concentración por serial
+  Serial.println("Concentración: ");
+  Serial.print(concentration);
+  Serial.println(" PPM");
+
+  //LCD
+  lcd.setCursor(1, 0);
+  lcd.print("CONCENTRACION:");
+  lcd.setCursor(3, 1);
+  lcd.print(concentration);
+  lcd.setCursor(10, 1);
+  lcd.print("PPM");
+
+  //Limpiar casillas especificas en LCD
+  if (concentration < 1000) {
+    lcd.setCursor(9, 1);
+    lcd.print(" ");  // Reemplaza lo que haya en esa casilla con un espacio
+    lcd.setCursor(13, 1);
+    lcd.print(" ");
+    lcd.setCursor(10, 1);
+    lcd.print("PPM");
+    if (concentration < 100) {
+      lcd.setCursor(8, 1);
+      lcd.print(" ");
+    }
+  } else if (concentration > 1000) {
+    lcd.setCursor(11, 1);
+    lcd.print("PPM");
+    lcd.setCursor(10, 1);
+    lcd.print(" ");
+  }
+  //
+}
+
+// Obtener la resistencia promedio en N muestras
+float readMQ(int mq_pin) {
+  float rs = 0;
+  for (int i = 0; i < READ_SAMPLE_TIMES; i++) {
+    rs += getMQResistance(analogRead(mq_pin));
+    delay(READ_SAMPLE_INTERVAL);
+  }
+  return rs / READ_SAMPLE_TIMES;
+}
+
+// Obtener resistencia a partir de la lectura analogica
+float getMQResistance(int raw_adc) {
+  return (((float)RL_VALUE / 1000.0 * (1023 - raw_adc) / raw_adc));
+}
+
+// Obtener concentracion 10^(coord + scope * log (rs/r0)
+float getConcentration(float rs_ro_ratio) {
+  return pow(10, coord + scope * log(rs_ro_ratio));
+}
+
+//FUNCION DE TIEMPO DE ESPERA PARA CALIBRAR
+void espera() {
+  //TIEMPO PARA CALIBRAR
+  lcd.setCursor(2, 0);
+  lcd.print("CALIBRANDO");
+  for (int i = 12; i <= 14; i++) {
+    lcd.setCursor(i, 0);
+    lcd.print(".");
+    delay(1000);  //100 ms
+
+    if (i == 14) {
+      cont += 1;
+      lcd.clear();
+      lcd.setCursor(2, 0);
+      lcd.print("CALIBRANDO");
+      i = 11;
+    }
+    if (cont == 7) {  //APROXIMADAMENTE 21 SEGUNDOS
+      i = MAXT;
+    }
+  }
+}

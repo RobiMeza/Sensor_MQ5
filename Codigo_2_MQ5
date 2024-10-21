@@ -5,11 +5,11 @@ LiquidCrystal_I2C lcd(0x3F, 16, 2);  //
 
 int cont = 0;
 int MAXT = 100;
-
+int R = 0;
 //PARAMETROS PARA EL MQ=5
-const int MQ_PIN = A7;    // Pin de lectura del sensor
-const int RL_VALUE = 20;  // Resistencia RL del modulo en Kilo ohms (5 es originalmente)
-const int R0 = 21;        /* Resistencia de referencia R0 del sensor en Kilo ohms (aire libre) (originalmente es 10)
+const int MQ_PIN = A0;    // Pin de lectura del sensor
+const int RL_VALUE = 20;  // Resistencia RL del modulo en Kilo ohms (5 es originalmente),20
+const int R0 = 21;        /* Resistencia de referencia R0 del sensor en Kilo ohms (aire libre) (originalmente es 10 o 21)
                           el valor de R0 se obtuvo del programa configuración_1*/
 
 // Datos para lectura multiple
@@ -17,7 +17,7 @@ const int READ_SAMPLE_INTERVAL = 100;  // Tiempo entre muestras
 const int READ_SAMPLE_TIMES = 5;       // Numero muestras
 
 // Valores obtenidos de la curva de gases del MQ-5
-const float X0 = 200;  //198.58
+const float X0 = 198.58;  //198.58
 const float Y0 = 0.70778;
 const float X1 = 10000;
 const float Y1 = 0.14867;
@@ -41,38 +41,54 @@ void loop() {
   float rs_med = readMQ(MQ_PIN);                        // Obtener la Rs promedio
   float concentration = getConcentration(rs_med / R0);  // Obtener la concentración
 
-  // Mostrar el valor de la concentración por serial
-  Serial.println("Concentración: ");
-  Serial.print(concentration);
-  Serial.println(" PPM");
+  if (concentration > 2000) {  //LIMITE
+    lcd.clear();
+    lcd.setCursor(2, 0);
+    lcd.print("PELIGRO ALTA");
+    lcd.setCursor(2, 1);
+    lcd.print("CONCENTRACION");
+    R = 0;
+  } else {
+    if (R == 0) {
+      lcd.clear();
+      R = 1;
+    }
+    // Mostrar el valor de la concentración por serial
+    Serial.println("Concentración: ");
+    Serial.print(concentration);
+    Serial.println(" PPM");
 
-  //LCD
-  lcd.setCursor(1, 0);
-  lcd.print("CONCENTRACION:");
-  lcd.setCursor(3, 1);
-  lcd.print(concentration);
-  lcd.setCursor(10, 1);
-  lcd.print("PPM");
-
-  //Limpiar casillas especificas en LCD
-  if (concentration < 1000) {
-    lcd.setCursor(9, 1);
-    lcd.print(" ");  // Reemplaza lo que haya en esa casilla con un espacio
-    lcd.setCursor(13, 1);
-    lcd.print(" ");
+    //LCD
+    lcd.setCursor(1, 0);
+    lcd.print("CONCENTRACION:");
+    lcd.setCursor(3, 1);
+    lcd.print(concentration);
     lcd.setCursor(10, 1);
     lcd.print("PPM");
-    if (concentration < 100) {
-      lcd.setCursor(8, 1);
+
+    //Limpiar casillas especificas en LCD
+    if (concentration < 1000) {
+      lcd.setCursor(9, 1);
+      lcd.print(" ");  // Reemplaza lo que haya en esa casilla con un espacio
+      lcd.setCursor(13, 1);
+      lcd.print(" ");
+      lcd.setCursor(2, 1);
+      lcd.print(" ");
+      lcd.setCursor(14, 1);
+      lcd.print(" ");
+      lcd.setCursor(10, 1);
+      lcd.print("PPM");
+      if (concentration < 100) {
+        lcd.setCursor(8, 1);
+        lcd.print(" ");
+      }
+    } else if (concentration > 1000) {
+      lcd.setCursor(11, 1);
+      lcd.print("PPM");
+      lcd.setCursor(10, 1);
       lcd.print(" ");
     }
-  } else if (concentration > 1000) {
-    lcd.setCursor(11, 1);
-    lcd.print("PPM");
-    lcd.setCursor(10, 1);
-    lcd.print(" ");
   }
-  //
 }
 
 // Obtener la resistencia promedio en N muestras
